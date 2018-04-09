@@ -431,8 +431,10 @@ class SvgRenderer:
         for xlink in self.waiting_use_nodes.keys():
             logger.debug("Ignoring unavailable object width ID '%s'." % xlink)
 
-        view_box = self.get_box(node, default_box=True)
-        main_group.scale(1, -1)
+        width, height, view_box = self.get_box(node, default_box=True)
+        x_scale = width / view_box.width
+        y_scale = height / view_box.height
+        main_group.scale(x_scale, -y_scale)
         main_group.translate(0 - view_box.x, -view_box.height - view_box.y)
         drawing = Drawing(view_box.width, view_box.height)
         drawing.add(main_group)
@@ -525,14 +527,16 @@ class SvgRenderer:
         pass
 
     def get_box(self, svg_node, default_box=False):
+        width, height = map(svg_node.getAttribute, ("width", "height"))
         view_box = svg_node.getAttribute("viewBox")
+        box = None
         if view_box:
             view_box = self.attrConverter.convertLengthList(view_box)
-            return Box(*view_box)
-        if default_box:
-            width, height = map(svg_node.getAttribute, ("width", "height"))
+            box = Box(*view_box)
+        elif default_box:
             width, height = map(self.attrConverter.convertLength, (width, height))
-            return Box(0, 0, width, height)
+            box = Box(0, 0, width, height)
+        return width, height, box
 
     def renderSvg(self, node, outermost=False):
         getAttr = node.getAttribute
@@ -551,7 +555,7 @@ class SvgRenderer:
             if x or y:
                 group.translate(x or 0, y or 0)
 
-            view_box = self.get_box(node)
+            main_width, main_height, view_box = self.get_box(node)
             if view_box:
                 x_scale, y_scale = 1, 1
                 width, height = map(getAttr, ("width", "height"))
